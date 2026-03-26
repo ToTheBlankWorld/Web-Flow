@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dns-monitor-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - /var/log/suricata:/var/log/suricata:ro
+    environment:
+      - EVE_FILE_PATH=/var/log/suricata/eve.json
+      - LOG_LEVEL=info
+    command: python main.py
+    restart: unless-stopped
+    networks:
+      - dns-monitor
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: dns-monitor-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    restart: unless-stopped
+    networks:
+      - dns-monitor
+    depends_on:
+      - backend
+
+networks:
+  dns-monitor:
+    driver: bridge
