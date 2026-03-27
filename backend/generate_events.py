@@ -35,6 +35,36 @@ LEGITIMATE_DOMAINS = [
     ("dns.google", "AAAA", 300, ["2001:4860:4860::8888"]),
 ]
 
+# ─── Phishing/Typosquat Domains ────────────────────────────────────────────────
+
+PHISHING_DOMAINS = [
+    # Education typosquats
+    ("gitamedu.com", "A", 300, ["103.247.19.184"], "gitam.edu", "GITAM University"),
+    ("g1tam.edu", "A", 300, ["185.192.69.12"], "gitam.edu", "GITAM University"),
+    ("iitbombay.com", "A", 300, ["45.33.32.156"], "iitb.ac.in", "IIT Bombay"),
+    
+    # Banking typosquats
+    ("hdfcbank-login.com", "A", 300, ["185.234.219.45"], "hdfcbank.com", "HDFC Bank"),
+    ("icic1bank.com", "A", 300, ["91.195.240.94"], "icicibank.com", "ICICI Bank"),
+    ("sbibank.co.in", "A", 300, ["103.21.58.67"], "sbi.co.in", "SBI"),
+    ("paypall.com", "A", 300, ["185.143.223.23"], "paypal.com", "PayPal"),
+    ("paypa1.com", "A", 300, ["91.214.124.56"], "paypal.com", "PayPal"),
+    
+    # Tech giants typosquats  
+    ("g00gle.com", "A", 300, ["185.234.72.18"], "google.com", "Google"),
+    ("go0gle.com", "A", 300, ["45.142.214.89"], "google.com", "Google"),
+    ("faceb00k.com", "A", 300, ["185.143.220.12"], "facebook.com", "Facebook"),
+    ("arnazon.com", "A", 300, ["91.195.240.123"], "amazon.com", "Amazon"),
+    ("amazom.com", "A", 300, ["185.234.219.67"], "amazon.com", "Amazon"),
+    ("rnicrosoft.com", "A", 300, ["103.21.58.89"], "microsoft.com", "Microsoft"),
+    ("microso1t.com", "A", 300, ["185.192.69.45"], "microsoft.com", "Microsoft"),
+    
+    # E-commerce typosquats
+    ("flipkart-offers.com", "A", 300, ["91.214.124.78"], "flipkart.com", "Flipkart"),
+    ("fl1pkart.com", "A", 300, ["185.143.223.89"], "flipkart.com", "Flipkart"),
+    ("myntra-sale.com", "A", 300, ["103.247.19.56"], "myntra.com", "Myntra"),
+]
+
 # ─── Attack Scenarios ──────────────────────────────────────────────────────────
 
 def generate_dga_domain():
@@ -115,6 +145,14 @@ def generate_malicious_keyword_event():
                        [f"45.{random.randint(1,255)}.{random.randint(1,255)}.{random.randint(1,254)}"])
 
 
+def generate_phishing_event():
+    """Generate phishing/typosquatting domain events"""
+    phish = random.choice(PHISHING_DOMAINS)
+    domain, qtype, ttl, ips, original, org = phish
+    return create_event(domain, qtype, ttl, "NOERROR", ips,
+                       src_ip=f"192.168.1.{random.randint(1, 254)}")
+
+
 # ─── Event Builder ─────────────────────────────────────────────────────────────
 
 def create_event(domain, query_type="A", ttl=300, rcode="NOERROR",
@@ -153,10 +191,10 @@ def create_event(domain, query_type="A", ttl=300, rcode="NOERROR",
 
 def main():
     eve_file = "eve.json"
-    print("DNS Traffic Generator v2.0")
+    print("DNS Traffic Generator v2.1 (with Phishing Detection)")
     print(f"Writing to: {eve_file}")
     print("Press Ctrl+C to stop\n")
-    print("Traffic mix: 70% legitimate, 30% attack scenarios\n")
+    print("Traffic mix: 60% legitimate, 25% attacks, 15% phishing\n")
 
     attack_generators = [
         ("DGA Domain", lambda: create_event(generate_dga_domain(), "A", random.randint(30, 120), "NOERROR",
@@ -172,15 +210,25 @@ def main():
     count = 0
     try:
         while True:
-            # 70% legitimate, 30% attacks
-            if random.random() < 0.7:
+            roll = random.random()
+            
+            if roll < 0.60:
+                # 60% legitimate traffic
                 domain, qtype, ttl, ips = random.choice(LEGITIMATE_DOMAINS)
                 event = create_event(domain, qtype, ttl, "NOERROR", ips)
                 label = "LEGIT"
-            else:
+                color = "\033[92m"  # Green
+            elif roll < 0.85:
+                # 25% attack traffic
                 attack_name, generator = random.choice(attack_generators)
                 event = generator()
                 label = attack_name.upper()
+                color = "\033[91m"  # Red
+            else:
+                # 15% phishing/typosquat traffic
+                event = generate_phishing_event()
+                label = "PHISHING"
+                color = "\033[95m"  # Magenta
 
             with open(eve_file, 'a') as f:
                 f.write(json.dumps(event) + '\n')
@@ -191,7 +239,6 @@ def main():
             qtype = event['dns']['rrtype']
             count += 1
 
-            color = "\033[92m" if label == "LEGIT" else "\033[91m"
             reset = "\033[0m"
             print(f"{color}[{count:>5}] [{datetime.now().strftime('%H:%M:%S')}] {label:<20} {qtype:<6} {domain:<45} TTL:{ttl}{reset}")
 

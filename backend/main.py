@@ -26,6 +26,7 @@ from contextlib import asynccontextmanager
 import aiofiles
 
 from dns_capture import DNSCaptureEngine, CapturedDNSEvent, HAS_DNSPYTHON
+from phishing_detector import check_phishing_domain, find_matching_legitimate_domain, get_common_typosquats
 
 
 # ─── Data Models ───────────────────────────────────────────────────────────────
@@ -42,6 +43,7 @@ class ThreatAlert(BaseModel):
     src_ip: str = ""
     dest_ip: str = ""
     recommended_action: str = ""
+    phishing_info: Optional[Dict[str, Any]] = None  # For phishing alerts
 
 
 # ─── Advanced Detection Engine ─────────────────────────────────────────────────
@@ -418,6 +420,41 @@ class DNSDetector:
                 )
         return None
 
+    def detect_phishing(self, domain):
+        """Detect typosquatting/phishing domains using pattern matching"""
+        match = find_matching_legitimate_domain(domain)
+        if match:
+            legit_domain, org_name, score = match
+            # Don't alert on the legitimate domain itself
+            base = domain.lower().rstrip('.')
+            parts = base.split('.')
+            if len(parts) >= 2:
+                base_check = '.'.join(parts[-2:]) if len(parts) == 2 else '.'.join(parts[-3:]) if parts[-2] in ('co', 'ac', 'gov') else '.'.join(parts[-2:])
+                if base_check == legit_domain:
+                    return None
+            
+            return ThreatAlert(
+                id=hashlib.md5(f"phish-{domain}".encode()).hexdigest()[:12],
+                timestamp=datetime.now().isoformat(), domain=domain,
+                threat_type="phishing_typosquat", 
+                severity="critical" if score > 0.8 else "high",
+                confidence=score,
+                description=f"⚠️ PHISHING ALERT: This looks like a fake version of {legit_domain}",
+                indicators={
+                    "original_domain": legit_domain,
+                    "original_org": org_name,
+                    "similarity": round(score, 3),
+                },
+                recommended_action=f"DO NOT enter credentials! The real site is {legit_domain} ({org_name})",
+                phishing_info={
+                    "is_phishing": True,
+                    "original_domain": legit_domain,
+                    "original_org": org_name,
+                    "confidence": score,
+                }
+            )
+        return None
+
     def _should_alert(self, key, cooldown=30):
         now = datetime.now()
         if key in self.alert_cooldown:
@@ -442,13 +479,18 @@ class DNSDetector:
 
         threats = []
 
-        # Only run malicious pattern check (always relevant) and suspicious TLD
+        # Priority 1: Phishing/typosquatting detection (most critical)
         checks = [
-            ("mal", self.detect_malicious_pattern(domain)),
-            ("tld", self.detect_suspicious_tld(domain)),
+            ("phish", self.detect_phishing(domain)),
         ]
 
-        # Heuristic-based detections only for non-whitelisted domains
+        # Priority 2: Malicious pattern check and suspicious TLD
+        checks.extend([
+            ("mal", self.detect_malicious_pattern(domain)),
+            ("tld", self.detect_suspicious_tld(domain)),
+        ])
+
+        # Priority 3: Heuristic-based detections
         checks.extend([
             ("dga", self.detect_dga(domain)),
             ("ff", self.detect_fast_flux(domain, answers, ts)),
@@ -1086,6 +1128,37 @@ async def geoip_batch(ips: str):
         *[asyncio.to_thread(_geoip_lookup, ip) for ip in ip_list]
     )
     return {"results": [r for r in results if r]}
+
+
+@app.get("/api/phishing/{domain}")
+async def check_phishing(domain: str):
+    """
+    Check if a domain is a potential phishing/typosquatting domain.
+    Uses dnstwist-style detection to identify lookalike domains.
+    
+    Returns:
+    - is_phishing: bool
+    - original_domain: The legitimate domain being spoofed
+    - original_org: Organization name
+    - confidence: Detection confidence (0-1)
+    - fuzzer_type: Type of typosquatting technique used
+    """
+    result = await check_phishing_domain(domain)
+    return result
+
+
+@app.get("/api/typosquats/{domain}")
+async def get_typosquats(domain: str):
+    """
+    Generate common typosquat variations for a domain.
+    Useful for proactive protection - check if any of these exist.
+    """
+    variations = get_common_typosquats(domain)
+    return {
+        "domain": domain,
+        "variations": variations,
+        "count": len(variations)
+    }
 
 
 @app.websocket("/ws/logs")

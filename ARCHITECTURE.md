@@ -557,4 +557,17 @@ def alert_critical_threat(domain: str):
 
 ---
 
+## 📚 Tech Stack Reference
+
+For detailed information about all technologies, libraries, and dependencies used in this project, see [TECH_STACK.md](TECH_STACK.md).
+
+**Key Components:**
+- Frontend: React 18 + TypeScript + Vite
+- Backend: FastAPI + Python 3 + asyncio
+- Detection: Suricata IDS + Custom algorithms
+- Real-time: WebSocket streaming
+- Additional: dnstwist, dnspython, WHOIS, Passive DNS
+
+---
+
 **Architecture designed for security, performance, and extensibility!** 🛡️

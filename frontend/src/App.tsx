@@ -42,6 +42,38 @@ function App() {
   const [connected, setConnected] = useState(false)
   const [activeTab, setActiveTab] = useState<TabId>('overview')
   const [notifPanelOpen, setNotifPanelOpen] = useState(false)
+  // Whitelist: domains marked as safe by user
+  const [whitelist, setWhitelist] = useState<Set<string>>(() => {
+    const saved = localStorage.getItem('dns_whitelist')
+    return saved ? new Set(JSON.parse(saved)) : new Set()
+  })
+
+  // Whitelist handlers
+  const addToWhitelist = useCallback((domain: string) => {
+    setWhitelist(prev => {
+      const next = new Set(prev)
+      next.add(domain)
+      localStorage.setItem('dns_whitelist', JSON.stringify([...next]))
+      return next
+    })
+    toast.success(`${domain} added to whitelist`, {
+      duration: 2000,
+      style: { background: '#1e293b', color: '#e2e8f0', border: '1px solid #334155' },
+    })
+  }, [])
+
+  const removeFromWhitelist = useCallback((domain: string) => {
+    setWhitelist(prev => {
+      const next = new Set(prev)
+      next.delete(domain)
+      localStorage.setItem('dns_whitelist', JSON.stringify([...next]))
+      return next
+    })
+    toast.success(`${domain} removed from whitelist`, {
+      duration: 2000,
+      style: { background: '#1e293b', color: '#e2e8f0', border: '1px solid #334155' },
+    })
+  }, [])
   // Auto-validation results pushed by backend (domain → result)
   const [domainValidations, setDomainValidations] = useState<Record<string, {
     status: 'safe' | 'poisoned'; cached_ips: string[]; auth_ips: string[]; changed_ips: string[]; timestamp: number
@@ -413,7 +445,12 @@ function App() {
                   <AlertTriangle className="w-4 h-4 text-red-400" />
                   Recent Threats
                 </h2>
-                <ThreatIntelligence alerts={alerts} />
+                <ThreatIntelligence 
+                  alerts={alerts} 
+                  whitelist={whitelist}
+                  onAddToWhitelist={addToWhitelist}
+                  onRemoveFromWhitelist={removeFromWhitelist}
+                />
               </div>
             </div>
 
@@ -459,7 +496,12 @@ function App() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2">
                 <h2 className="text-sm font-semibold text-surface-300 mb-3">Threat Intelligence</h2>
-                <ThreatIntelligence alerts={alerts} />
+                <ThreatIntelligence 
+                  alerts={alerts} 
+                  whitelist={whitelist}
+                  onAddToWhitelist={addToWhitelist}
+                  onRemoveFromWhitelist={removeFromWhitelist}
+                />
               </div>
               <div>
                 <h2 className="text-sm font-semibold text-surface-300 mb-3">Timeline</h2>
@@ -486,7 +528,12 @@ function App() {
               <GitBranch className="w-4 h-4 text-purple-400" /> Domain Risk Analysis
             </h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <DomainAnalysis logs={logs} />
+              <DomainAnalysis 
+                logs={logs} 
+                whitelist={whitelist}
+                onAddToWhitelist={addToWhitelist}
+                onRemoveFromWhitelist={removeFromWhitelist}
+              />
               <div>
                 <h3 className="text-sm font-semibold text-surface-300 mb-3">Record Type Distribution</h3>
                 <ThreatDistribution stats={stats} />

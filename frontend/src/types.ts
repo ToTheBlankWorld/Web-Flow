@@ -17,6 +17,13 @@ export interface DNSLog {
   is_authoritative: boolean
 }
 
+export interface PhishingInfo {
+  is_phishing: boolean
+  original_domain: string
+  original_org: string
+  confidence: number
+}
+
 export interface ThreatAlert {
   id: string
   timestamp: string
@@ -29,6 +36,7 @@ export interface ThreatAlert {
   src_ip: string
   dest_ip: string
   recommended_action: string
+  phishing_info?: PhishingInfo  // For phishing alerts
 }
 
 export interface ThreatAlertMessage {
@@ -93,4 +101,5 @@ export const THREAT_TYPE_LABELS: Record<string, string> = {
   rogue_nameserver: 'Rogue Nameserver',
   suspicious_tld: 'Suspicious TLD',
   malicious_domain: 'Malicious Domain',
+  phishing_typosquat: 'Phishing / Typosquat',
 }

@@ -18,12 +18,23 @@ A real-time DNS security monitoring system with threat detection using Suricata,
 
 ## 📋 Tech Stack
 
+**Full details available in [TECH_STACK.md](TECH_STACK.md)**
+
 ```
 Frontend:    React 18 + TypeScript + Vite + Tailwind CSS
 Backend:     FastAPI + Python 3 + WebSocket
 IDS/IPS:     Suricata + Eve.json logging
 Database:    JSON file-based logging (eve.json)
+CLI:         Python 3 + httpx + Rich terminal UI
+Integrations: dnstwist, dnspython, Zeek, Npcap
 ```
+
+**See [TECH_STACK.md](TECH_STACK.md) for comprehensive technical details including:**
+- All dependencies and libraries
+- External integrations
+- Performance specifications
+- Security components
+- Deployment tools
 
 ## 🚀 Quick Start
 

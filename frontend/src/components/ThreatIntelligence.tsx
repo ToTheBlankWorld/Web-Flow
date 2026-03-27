@@ -1,13 +1,16 @@
 import React from 'react'
-import { AlertTriangle, Shield, ExternalLink, Clock } from 'lucide-react'
+import { AlertTriangle, Shield, ExternalLink, Clock, ShieldCheck, ShieldX } from 'lucide-react'
 import type { ThreatAlert } from '../types'
 import { SEVERITY_CONFIG, THREAT_TYPE_LABELS } from '../types'
 
 interface Props {
   alerts: ThreatAlert[]
+  whitelist?: Set<string>
+  onAddToWhitelist?: (domain: string) => void
+  onRemoveFromWhitelist?: (domain: string) => void
 }
 
-export const ThreatIntelligence: React.FC<Props> = ({ alerts }) => {
+export const ThreatIntelligence: React.FC<Props> = ({ alerts, whitelist, onAddToWhitelist, onRemoveFromWhitelist }) => {
   const formatTime = (ts: string) => {
     try {
       return new Date(ts).toLocaleTimeString('en-US', { hour12: false })
@@ -25,6 +28,7 @@ export const ThreatIntelligence: React.FC<Props> = ({ alerts }) => {
       case 'rogue_nameserver': return '👤'
       case 'suspicious_tld': return '🔗'
       case 'malicious_domain': return '☠️'
+      case 'phishing_typosquat': return '🎣'
       default: return '⚠️'
     }
   }
@@ -43,18 +47,54 @@ export const ThreatIntelligence: React.FC<Props> = ({ alerts }) => {
     <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
       {alerts.slice(0, 30).map((alert) => {
         const config = SEVERITY_CONFIG[alert.severity] || SEVERITY_CONFIG.info
+        const isWhitelisted = whitelist?.has(alert.domain)
+        const isPhishing = alert.threat_type === 'phishing_typosquat' && alert.phishing_info
 
         return (
           <div
             key={alert.id}
-            className={`card p-4 animate-slide-up ${config.bg} border ${config.border}`}
+            className={`card p-4 animate-slide-up ${isWhitelisted ? 'bg-green-500/10 border-green-500/30' : isPhishing ? 'bg-red-500/20 border-red-500/50 ring-2 ring-red-500/30' : config.bg} border ${isWhitelisted ? 'border-green-500/30' : config.border}`}
           >
+            {/* Phishing Alert Banner */}
+            {isPhishing && !isWhitelisted && (
+              <div className="mb-4 p-3 bg-red-500/25 border border-red-500/40 rounded-lg">
+                <div className="flex items-center gap-2 text-red-400 font-bold text-sm mb-2">
+                  <span className="text-xl">🚨</span>
+                  PHISHING SITE DETECTED!
+                </div>
+                <p className="text-red-300 text-xs mb-2">
+                  This domain appears to be impersonating a legitimate website. <strong>DO NOT</strong> enter any credentials or personal information!
+                </p>
+                <div className="flex items-center gap-2 bg-green-500/20 border border-green-500/30 rounded-md p-2 mt-2">
+                  <span className="text-green-400 text-xs font-medium">✓ Correct website:</span>
+                  <a 
+                    href={`https://${alert.phishing_info?.original_domain}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-green-300 font-mono text-xs hover:underline flex items-center gap-1"
+                  >
+                    {alert.phishing_info?.original_domain}
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                  <span className="text-green-400/70 text-xs">({alert.phishing_info?.original_org})</span>
+                </div>
+              </div>
+            )}
+
+            {/* Whitelisted badge */}
+            {isWhitelisted && (
+              <div className="flex items-center gap-2 mb-3 pb-3 border-b border-green-500/20">
+                <ShieldCheck className="w-4 h-4 text-green-400" />
+                <span className="text-xs font-medium text-green-400">WHITELISTED - Marked as Safe</span>
+              </div>
+            )}
+
             {/* Header */}
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center gap-2">
                 <span className="text-lg">{getThreatIcon(alert.threat_type)}</span>
                 <div>
-                  <span className={`text-xs font-semibold ${config.text} uppercase tracking-wide`}>
+                  <span className={`text-xs font-semibold ${isWhitelisted ? 'text-green-400' : config.text} uppercase tracking-wide`}>
                     {THREAT_TYPE_LABELS[alert.threat_type] || alert.threat_type}
                   </span>
                   <div className="text-sm font-semibold text-surface-200 mt-0.5">{alert.domain}</div>
@@ -62,6 +102,26 @@ export const ThreatIntelligence: React.FC<Props> = ({ alerts }) => {
               </div>
 
               <div className="flex items-center gap-2">
+                {/* Whitelist/Remove button */}
+                {isWhitelisted ? (
+                  <button
+                    onClick={() => onRemoveFromWhitelist?.(alert.domain)}
+                    className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium bg-red-500/15 text-red-400 border border-red-500/30 hover:bg-red-500/25 transition-colors"
+                    title="Remove from whitelist"
+                  >
+                    <ShieldX className="w-3 h-3" />
+                    Remove
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => onAddToWhitelist?.(alert.domain)}
+                    className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium bg-green-500/15 text-green-400 border border-green-500/30 hover:bg-green-500/25 transition-colors"
+                    title="Add to whitelist"
+                  >
+                    <ShieldCheck className="w-3 h-3" />
+                    Whitelist
+                  </button>
+                )}
                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${config.bg} ${config.text} border ${config.border}`}>
                   {config.label}
                 </span>
