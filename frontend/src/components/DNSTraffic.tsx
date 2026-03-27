@@ -1,72 +1,103 @@
-import React from 'react'
+import React, { useMemo } from 'react'
+import { ArrowRight, AlertTriangle } from 'lucide-react'
+import type { DNSLog } from '../types'
 
-interface DNSLog {
-  timestamp: string
-  domain: string
-  src_ip: string
-  dest_ip: string
-  query_type: string
-  ttl: number
-  response_code: string
-  alert_level: string
-  alert_reason: string
+interface Props {
+  logs: DNSLog[]
 }
 
-export const DNSTraffic: React.FC<{ logs: DNSLog[] }> = ({ logs }) => {
-  // Filter and group requests and responses
-  const filteredLogs = logs.slice(0, 50).filter(log => log.domain !== 'unknown')
+export const DNSTraffic: React.FC<Props> = ({ logs }) => {
+  const groupedByDomain = useMemo(() => {
+    const groups: Record<string, {
+      requests: number
+      responses: number
+      ips: Set<string>
+      sources: Set<string>
+      alert: boolean
+      reasons: string[]
+      queryTypes: Set<string>
+      lastSeen: string
+    }> = {}
 
-  const groupedByDomain = filteredLogs.reduce((acc: any, log) => {
-    const key = log.domain
-    if (!acc[key]) {
-      acc[key] = { requests: 0, responses: 0, ips: new Set(), alert: false, reason: '' }
-    }
-    if (log.response_code === 'NOERROR' || log.response_code) {
-      acc[key].responses++
-      acc[key].ips.add(log.dest_ip)
-    } else {
-      acc[key].requests++
-    }
-    if (log.alert_level === 'ALERT') {
-      acc[key].alert = true
-      acc[key].reason = log.alert_reason
-    }
-    return acc
-  }, {})
+    logs.slice(0, 80).forEach(log => {
+      if (log.domain === 'unknown') return
+      if (!groups[log.domain]) {
+        groups[log.domain] = {
+          requests: 0,
+          responses: 0,
+          ips: new Set(),
+          sources: new Set(),
+          alert: false,
+          reasons: [],
+          queryTypes: new Set(),
+          lastSeen: '',
+        }
+      }
+      const g = groups[log.domain]
+      g.requests++
+      if (log.response_code === 'NOERROR') g.responses++
+      if (log.dest_ip) g.ips.add(log.dest_ip)
+      if (log.src_ip) g.sources.add(log.src_ip)
+      g.queryTypes.add(log.query_type)
+      g.lastSeen = log.timestamp
+      if (log.alert_level === 'alert') {
+        g.alert = true
+        if (log.alert_reason) g.reasons.push(log.alert_reason)
+      }
+    })
+
+    return Object.entries(groups)
+      .sort(([, a], [, b]) => (b.alert ? 1 : 0) - (a.alert ? 1 : 0) || b.requests - a.requests)
+      .slice(0, 20)
+  }, [logs])
 
   return (
-    <div className="space-y-3 max-h-96 overflow-y-auto">
-      {Object.entries(groupedByDomain).length === 0 ? (
-        <div className="text-gray-600 text-center py-12">Waiting for DNS traffic...</div>
+    <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+      {groupedByDomain.length === 0 ? (
+        <div className="text-surface-500 text-center py-12 text-sm">Waiting for DNS traffic...</div>
       ) : (
-        Object.entries(groupedByDomain).map(([domain, data]: any, idx) => (
+        groupedByDomain.map(([domain, data]) => (
           <div
-            key={idx}
-            className={`border rounded p-4 transition ${
+            key={domain}
+            className={`card-compact p-3 transition-colors ${
               data.alert
-                ? 'border-hacker-red bg-red-950/10'
-                : 'border-gray-700 bg-gray-950/30 hover:border-hacker-green'
+                ? 'bg-red-500/5 border-red-500/20 hover:border-red-500/40'
+                : 'hover:border-surface-600'
             }`}
           >
-            <div className="flex justify-between items-start mb-2">
-              <div className="flex-1">
-                <div className={`font-bold text-lg ${data.alert ? 'text-hacker-red' : 'text-hacker-green'}`}>
-                  {data.alert && '🚨 '} {domain}
-                </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  Requests: <span className="text-hacker-blue">{data.requests}</span> | Responses: <span className="text-hacker-green">{data.responses}</span> | IPs: <span className="text-yellow-400">{data.ips.size}</span>
-                </div>
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center gap-2 min-w-0">
+                {data.alert && <AlertTriangle className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />}
+                <span className={`text-sm font-medium truncate ${data.alert ? 'text-red-400' : 'text-surface-200'}`}>
+                  {domain}
+                </span>
               </div>
-              <div className="text-right">
-                <div className={`text-xs px-2 py-1 rounded ${data.alert ? 'bg-hacker-red/30 text-hacker-red' : 'bg-gray-700 text-gray-300'}`}>
-                  {data.alert ? 'THREAT' : 'CLEAN'}
-                </div>
-              </div>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                data.alert
+                  ? 'bg-red-500/15 text-red-400 border border-red-500/30'
+                  : 'bg-green-500/10 text-green-400/70 border border-green-500/20'
+              }`}>
+                {data.alert ? 'Threat' : 'Clean'}
+              </span>
             </div>
 
-            {data.alert && (
-              <div className="text-xs text-hacker-red mt-2 pl-2 border-l-2 border-hacker-red">
-                ⚠️ {data.reason}
+            <div className="flex items-center gap-4 text-xs text-surface-400">
+              <span>Queries: <span className="text-brand-400">{data.requests}</span></span>
+              <span>OK: <span className="text-green-400">{data.responses}</span></span>
+              <span>IPs: <span className="text-purple-400">{data.ips.size}</span></span>
+              <span>Sources: <span className="text-cyan-400">{data.sources.size}</span></span>
+              <span className="flex items-center gap-1">
+                {Array.from(data.queryTypes).map(qt => (
+                  <span key={qt} className="px-1 py-0.5 rounded bg-surface-700/30 text-[10px] font-mono">
+                    {qt}
+                  </span>
+                ))}
+              </span>
+            </div>
+
+            {data.alert && data.reasons.length > 0 && (
+              <div className="mt-2 text-xs text-red-400/80 pl-5 border-l-2 border-red-500/30 truncate">
+                {data.reasons[data.reasons.length - 1]}
               </div>
             )}
           </div>

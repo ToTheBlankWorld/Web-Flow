@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx vite:*)",
+      "Bash(python -c \"import py_compile; py_compile.compile\\(''main.py'', doraise=True\\); py_compile.compile\\(''dns_capture.py'', doraise=True\\); py_compile.compile\\(''generate_events.py'', doraise=True\\); print\\(''All Python files OK''\\)\")",
+      "Bash(python -c \"import dns.resolver; print\\(''dnspython:'', dns.__version__\\)\")",
+      "Bash(python -c \"import fastapi, uvicorn, aiofiles, pydantic; print\\(''All backend deps OK''\\)\")",
+      "Bash(python -c \"import sys; print\\(sys.executable\\)\")",
+      "Bash(python -m venv venv)",
+      "Bash(./venv/Scripts/pip install:*)",
+      "Bash(\"d:/idea-spirit/Web-Flow/backend/venv/Scripts/python.exe\" -m ensurepip --upgrade)",
+      "Bash(C:/Python312/python.exe -m pip install --upgrade pydantic pydantic-core)",
+      "Bash(ls d:/idea-spirit/Web-Flow/backend/*.bat)",
+      "Bash(ls d:/idea-spirit/Web-Flow/*.bat)",
+      "Bash(ls d:/idea-spirit/Web-Flow/Utilities/*.bat)",
+      "Bash(\"d:/idea-spirit/Web-Flow/backend/venv/Scripts/python.exe\" -c \"import sys; print\\(sys.version\\); print\\(sys.executable\\)\")",
+      "Bash(\"d:/idea-spirit/Web-Flow/backend/venv/Scripts/python.exe\" -m pip install \"fastapi==0.104.1\" \"uvicorn[standard]==0.24.0\" \"pydantic==2.5.0\" \"aiofiles==23.2.1\" \"websockets==12.0\" \"dnspython==2.4.2\")",
+      "Bash(\"d:/idea-spirit/Web-Flow/backend/venv/Scripts/python.exe\" -m ensurepip)"
+    ]
+  }
+}
