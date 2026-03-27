@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react'
-import { ChevronDown, ChevronUp, Filter, Shield, Globe, Clock, Server, Wifi, AlertTriangle, CheckCircle } from 'lucide-react'
+import { ChevronDown, ChevronUp, Filter, Shield, Globe, Clock, Server, Wifi, AlertTriangle, CheckCircle, Search, X } from 'lucide-react'
 import type { DNSLog } from '../types'
 import { SEVERITY_CONFIG, THREAT_TYPE_LABELS } from '../types'
 
@@ -228,16 +228,31 @@ const FILTERS = ['all', 'alerts', 'clean', 'A', 'AAAA', 'CNAME', 'MX', 'NS', 'TX
 export const LiveDNSTable: React.FC<Props> = ({ logs }) => {
   const [expandedKey, setExpandedKey] = useState<string | null>(null)
   const [filter, setFilter] = useState<string>('all')
+  const [search, setSearch] = useState<string>('')
   const [page, setPage] = useState(0)
 
   const PAGE_SIZE = 100
 
   const filteredLogs = useMemo(() => {
-    if (filter === 'all')    return logs
-    if (filter === 'alerts') return logs.filter(l => l.alert_level === 'alert')
-    if (filter === 'clean')  return logs.filter(l => l.alert_level !== 'alert')
-    return logs.filter(l => l.query_type === filter)
-  }, [logs, filter])
+    let filtered = logs
+
+    // Apply alert/clean filter
+    if (filter === 'all')    filtered = logs
+    else if (filter === 'alerts') filtered = logs.filter(l => l.alert_level === 'alert')
+    else if (filter === 'clean')  filtered = logs.filter(l => l.alert_level !== 'alert')
+    else filtered = logs.filter(l => l.query_type === filter)
+
+    // Apply search filter (domain or IP)
+    if (search.trim()) {
+      const searchLower = search.toLowerCase()
+      filtered = filtered.filter(l =>
+        l.domain.toLowerCase().includes(searchLower) ||
+        (l.dest_ip && l.dest_ip.includes(searchLower))
+      )
+    }
+
+    return filtered
+  }, [logs, filter, search])
 
   const pageCount = Math.max(1, Math.ceil(filteredLogs.length / PAGE_SIZE))
   const clampedPage = Math.min(page, pageCount - 1)
@@ -259,26 +274,56 @@ export const LiveDNSTable: React.FC<Props> = ({ logs }) => {
   return (
     <div className="card overflow-hidden">
       {/* Filter bar */}
-      <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-surface-700/50">
-        <Filter className="w-4 h-4 text-surface-400 shrink-0" />
-        <div className="flex flex-wrap gap-1.5">
-          {FILTERS.map(f => (
-            <button
-              key={f}
-              onClick={() => handleFilter(f)}
-              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
-                filter === f
-                  ? 'bg-brand-500/20 text-brand-400 border border-brand-500/30'
-                  : 'text-surface-400 hover:text-surface-200 hover:bg-surface-700/50'
-              }`}
-            >
-              {f === 'all' ? 'All' : f === 'alerts' ? 'Alerts' : f === 'clean' ? 'Clean' : f}
-            </button>
-          ))}
+      <div className="flex flex-col gap-3 px-4 py-3 border-b border-surface-700/50">
+        {/* Search and filters row */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Filter className="w-4 h-4 text-surface-400 shrink-0" />
+          <div className="flex flex-wrap gap-1.5">
+            {FILTERS.map(f => (
+              <button
+                key={f}
+                onClick={() => handleFilter(f)}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                  filter === f
+                    ? 'bg-brand-500/20 text-brand-400 border border-brand-500/30'
+                    : 'text-surface-400 hover:text-surface-200 hover:bg-surface-700/50'
+                }`}
+              >
+                {f === 'all' ? 'All' : f === 'alerts' ? 'Alerts' : f === 'clean' ? 'Clean' : f}
+              </button>
+            ))}
+          </div>
+          <span className="ml-auto text-xs text-surface-500 shrink-0">
+            {filteredLogs.length.toLocaleString()} entries
+          </span>
         </div>
-        <span className="ml-auto text-xs text-surface-500 shrink-0">
-          {filteredLogs.length.toLocaleString()} entries
-        </span>
+
+        {/* Search row */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-500 pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Search by domain or IP..."
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value)
+              setPage(0)
+            }}
+            className="w-full pl-9 pr-9 py-2 bg-surface-800/50 border border-surface-700/50 rounded-lg text-sm text-surface-200 placeholder-surface-500 focus:outline-none focus:border-brand-500/50 focus:bg-surface-800 transition-colors"
+          />
+          {search && (
+            <button
+              onClick={() => {
+                setSearch('')
+                setPage(0)
+              }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-surface-500 hover:text-surface-300 transition-colors"
+              title="Clear search"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Table */}
