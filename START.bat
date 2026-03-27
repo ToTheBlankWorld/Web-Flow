@@ -1,51 +1,34 @@
 @echo off
-REM Master startup script for DNS Security Monitoring Platform
-
-echo ==========================================
-echo DNS Security Monitoring Platform - Startup
-echo ==========================================
-echo.
-echo This will start:
-echo 1. Backend server (port 9000)
-echo 2. Frontend dev server (port 5173)
-echo 3. DNS traffic generator
+echo ========================================
+echo  DNS Guardian - Full Stack Launcher
+echo ========================================
 echo.
 
-REM Start backend
-echo Starting backend...
-start "Backend Server" cmd /k "cd /d d:\My Projects\DNS Detc\backend && run.bat"
+REM Start Backend in a new window
+echo [1/2] Starting Backend (port 9000)...
+start "DNS Guardian - Backend" cmd /k "cd /d %~dp0backend && call start.bat"
 
-REM Give backend time to start
-timeout /t 2 /nobreak
+REM Wait for backend to initialize
+timeout /t 8 /nobreak >nul
 
-REM Start frontend
-echo Starting frontend...
-start "Frontend Server" cmd /k "cd /d d:\My Projects\DNS Detc\frontend && run.bat"
-
-REM Give frontend time to start
-timeout /t 2 /nobreak
-
-REM Start event generator
-echo Starting DNS traffic generator...
-start "DNS Traffic Generator" cmd /k "cd /d d:\My Projects\DNS Detc && python generate_events.py"
+REM Start Frontend dev server in a new window
+echo [2/2] Starting Frontend (port 5173)...
+start "DNS Guardian - Frontend" cmd /k "cd /d %~dp0frontend && npm run dev"
 
 echo.
-echo ==========================================
-echo Services starting. Wait 10-15 seconds for them to initialize.
-echo.
-echo Frontend: http://localhost:5173
-echo Backend: http://localhost:9000
-echo ==========================================
-echo.
+echo ========================================
+echo  Waiting for services to start...
+echo ========================================
+timeout /t 6 /nobreak >nul
 
-REM Open frontend in browser if available
-timeout /t 5 /nobreak
-if exist "C:\Program Files\Google\Chrome\Application\chrome.exe" (
-    start "" "C:\Program Files\Google\Chrome\Application\chrome.exe" http://localhost:5173
-) else if exist "C:\Program Files\Mozilla Firefox\firefox.exe" (
-    start "" "C:\Program Files\Mozilla Firefox\firefox.exe" http://localhost:5173
-) else (
-    start http://localhost:5173
-)
+echo.
+echo  Backend:  http://localhost:9000
+echo  Frontend: http://localhost:5173
+echo.
+echo  Opening dashboard in your browser...
+start http://localhost:5173
 
+echo.
+echo Both servers are running in separate windows.
+echo Close those windows to stop the servers.
 pause
