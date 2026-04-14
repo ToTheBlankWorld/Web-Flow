@@ -80,7 +80,7 @@ python3 main.py
 # Server runs on http://localhost:8000
 ```
 
-### 3. Frontend Setup (2 minutes)
+### 3. Frontend Setup (<2 minutes)
 
 ```bash
 # In a new terminal
